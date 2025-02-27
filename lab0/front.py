@@ -1,2 +1,5 @@
 print('Привет, мир')
-hsdsd
+
+x = 5
+
+print(x)
