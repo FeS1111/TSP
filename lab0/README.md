@@ -23,4 +23,4 @@
 
 <h1>Физическая схема базы данных</h1>
 
-![img.png](img.png)
+![image](https://github.com/user-attachments/assets/a6199b95-5e24-4a8d-a80e-045f348f0b8b)
