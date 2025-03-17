@@ -1,7 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.contrib.auth.hashers import make_password, check_password
 
-# Модель для таблицы CATEGORIES
 class Category(models.Model):
     category_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50, unique=True)
@@ -10,20 +10,24 @@ class Category(models.Model):
         return self.name
 
 
-# Модель для таблицы USERS
 class User(models.Model):
     user_id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=100, unique=True)
     email = models.EmailField(max_length=255, unique=True)
-    password_hash = models.CharField(max_length=64)
+    password_hash = models.CharField(max_length=256)
     created_at = models.DateField(auto_now_add=True)
     avatar = models.TextField(blank=True, null=True)
+
+    def set_password(self, password):
+        self.password_hash = make_password(password)
+
+    def check_password(self, password):
+        return check_password(password, self.password_hash)
 
     def __str__(self):
         return self.username
 
 
-# Модель для таблицы EVENTS
 class Event(models.Model):
     event_id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=255)
@@ -42,7 +46,6 @@ class Event(models.Model):
         return self.title
 
 
-# Модель для таблицы EVENTS_TO_CATEGORIES
 class EventToCategory(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='event_categories')
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='event_categories')
@@ -54,7 +57,6 @@ class EventToCategory(models.Model):
         return f"{self.event.title} -> {self.category.name}"
 
 
-# Модель для таблицы REACTIONS
 class Reaction(models.Model):
     REACTION_TYPES = [
         ('going', 'Going'),
