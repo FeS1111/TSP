@@ -5,9 +5,9 @@ from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 router.register(r'users', UserApiView)
-router.register(r'cat', CategoryApiView)
+router.register(r'categories', CategoryApiView)
 router.register(r'events', EventApiView)
-router.register(r'react', ReactionApiView)
+router.register(r'reactions', ReactionApiView)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

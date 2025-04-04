@@ -18,6 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = '__all__'
         extra_kwargs = {
             'password_hash': {
+                'write_only': True,
                 'error_messages': {
                     'blank': 'Пароль не может быть пустым',
                     'required': 'Пароль обязателен для заполнения'
@@ -37,6 +38,13 @@ class UserSerializer(serializers.ModelSerializer):
         validated_data['password_hash'] = make_password(validated_data['password_hash'])
         return super().create(validated_data)
 
+    def update(self, instance, validated_data):
+        password = validated_data.get('password_hash')
+        if password:
+            validated_data['password_hash'] = make_password(password)
+
+        return super().update(instance, validated_data)
+
 
 class CategorySerializer(serializers.ModelSerializer):
     name = serializers.CharField(
@@ -51,10 +59,19 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = '__all__'
 
+    def validate_name(self, value):
+
+        if self.instance and self.instance.name == value:
+            return value
+
+        if Category.objects.filter(name__iexact=value).exists():
+            raise serializers.ValidationError('Категория с таким названием уже существует')
+        return value
+
 
 class EventSerializer(serializers.ModelSerializer):
-    categories = CategorySerializer(many=True, read_only=True)
-    start_date = serializers.DateTimeField(
+    #categories = CategorySerializer(many=True, read_only=True)
+    '''start_date = serializers.DateTimeField(
         error_messages={
             'invalid': 'Некорректный формат даты начала'
         }
@@ -63,7 +80,7 @@ class EventSerializer(serializers.ModelSerializer):
         error_messages={
             'invalid': 'Некорректный формат даты окончания'
         }
-    )
+    )'''
 
     class Meta:
         model = Event
@@ -76,12 +93,12 @@ class EventSerializer(serializers.ModelSerializer):
             }
         }
 
-    def validate(self, data):
+    '''def validate(self, data):
         if data['start_date'] > data['end_date']:
             raise serializers.ValidationError({
                 "end_date": "Дата окончания не может быть раньше даты начала"
             })
-        return data
+        return data'''
 
 
 class ReactionSerializer(serializers.ModelSerializer):
@@ -102,7 +119,7 @@ class ReactionSerializer(serializers.ModelSerializer):
         }
 
     def validate_reaction_type(self, value):
-        valid_reactions = ['like', 'dislike', 'interested']
+        valid_reactions = ['going', 'not_going']
         if value not in valid_reactions:
             raise serializers.ValidationError(
                 f"Недопустимая реакция. Допустимые значения: {', '.join(valid_reactions)}"
