@@ -49,17 +49,32 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         required=False,
+        allow_blank=True,
         error_messages={
             'blank': 'Пароль не может быть пустым',
         },
         style={'input_type': 'password'}
     )
+    current_password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        style={'input_type': 'password'}
+    )
+    new_password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        style={'input_type': 'password'}
+    )
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'created_at', 'avatar']
+        fields = [
+            'id', 'username', 'email', 'password',
+            'created_at', 'avatar', 'current_password', 'new_password'
+        ]
         extra_kwargs = {
-            'password_hash': {'write_only': True, 'required': False},
             'created_at': {'read_only': True},
         }
 
@@ -68,10 +83,38 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Пароль должен содержать минимум 8 символов")
         return value
 
+    def validate(self, data):
+        if 'new_password' in data and data['new_password']:
+            if not data.get('current_password'):
+                raise serializers.ValidationError(
+                    {"current_password": "Текущий пароль обязателен для изменения пароля"}
+                )
+
+            if not self.instance.check_password(data['current_password']):
+                raise serializers.ValidationError(
+                    {"current_password": "Неверный текущий пароль"}
+                )
+
+            if len(data['new_password']) < 8:
+                raise serializers.ValidationError(
+                    {"new_password": "Пароль должен содержать минимум 8 символов"}
+                )
+
+        return data
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
     def update(self, instance, validated_data):
-        password = validated_data.pop('password', None)
-        if password:
-            instance.set_password(password)
+        new_password = validated_data.pop('new_password', None)
+        current_password = validated_data.pop('current_password', None)
+
+        if new_password:
+            instance.set_password(new_password)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -82,6 +125,8 @@ class UserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         ret.pop('password', None)
+        ret.pop('current_password', None)
+        ret.pop('new_password', None)
         return ret
 
 

@@ -14,7 +14,6 @@ class JWTAuthMiddleware:
                 r'^/api/register/$',
                 r'^/api/events/$'  # Разрешить GET без токена
 
-
             ]
         ]
         self.jwt_authentication = JWTAuthentication()
