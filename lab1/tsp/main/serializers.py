@@ -1,8 +1,40 @@
 from rest_framework import serializers
 from .models import User, Event, Category, Reaction
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.hashers import make_password
 from django.core.validators import ValidationError
 from rest_framework.validators import UniqueValidator
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data.update({
+            'user_id': self.user.id,
+            'username': self.user.username,
+            'email': self.user.email
+        })
+        return data
+
+
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'}
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password', 'avatar']
+
+    def create(self, validated_data):
+        return User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            avatar=validated_data.get('avatar')
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -25,7 +57,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['user_id', 'username', 'email', 'password', 'created_at', 'avatar']
+        fields = ['id', 'username', 'email', 'password', 'created_at', 'avatar']
         extra_kwargs = {
             'password_hash': {'write_only': True, 'required': False},
             'created_at': {'read_only': True},
