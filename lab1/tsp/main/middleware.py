@@ -12,7 +12,8 @@ class JWTAuthMiddleware:
             re.compile(url) for url in [
                 r'^/api/token/$',
                 r'^/api/register/$',
-                r'^/api/events/$'  # Разрешить GET без токена
+                r'^/api/events/$'
+                r'^/api/token/refresh/$'
 
             ]
         ]

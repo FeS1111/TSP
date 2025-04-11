@@ -1,9 +1,24 @@
-from rest_framework import serializers
+from rest_framework import permissions, serializers
 from .models import User, Event, Category, Reaction
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.hashers import make_password
 from django.core.validators import ValidationError
 from rest_framework.validators import UniqueValidator
+
+
+class IsAdminOrStaff(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and (request.user.is_superuser or request.user.is_staff)
+
+class CanChangePassword(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if view.action == 'update' and request.method == 'PUT':
+            return request.user.is_authenticated
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        return obj.id == request.user.id
+
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

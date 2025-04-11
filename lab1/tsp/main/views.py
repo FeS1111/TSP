@@ -6,7 +6,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticate
 
 from .models import User, Category, Reaction, Event
 from .serializers import UserSerializer, CategorySerializer, EventSerializer, ReactionSerializer, \
-    CustomTokenObtainPairSerializer, UserRegistrationSerializer
+    CustomTokenObtainPairSerializer, UserRegistrationSerializer, IsAdminOrStaff, CanChangePassword
+
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -32,6 +33,11 @@ class UserApiView(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action == 'update' and self.request.method == 'PUT':
+            return [CanChangePassword()]
+        return [IsAdminOrStaff()]
 
 class CategoryApiView(viewsets.ModelViewSet):
     queryset = Category.objects.all()
