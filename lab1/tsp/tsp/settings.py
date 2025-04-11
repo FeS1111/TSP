@@ -51,6 +51,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'BLACKLIST_AFTER_ROTATION': True,  # Включить черный список
+    'ROTATE_REFRESH_TOKENS': True,     # Обновлять refresh-токены
+    'AUTH_HEADER_TYPES': ('Bearer',),  # Формат заголовка
 }
 
 

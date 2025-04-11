@@ -47,3 +47,21 @@ class ReactionApiView(viewsets.ModelViewSet):
     queryset = Reaction.objects.all()
     serializer_class = ReactionSerializer
     permission_classes = [IsAuthenticated]
+# Добавьте новый импорт
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+# Добавьте эту строку в раздел импортов
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data.get("refresh_token")
+            token = RefreshToken(refresh_token)
+            BlacklistedToken.objects.create(token=str(token))
+            return Response({"message": "Успешный выход"}, status=200)
+        except TokenError as e:
+            return Response({"error": str(e)}, status=400)
