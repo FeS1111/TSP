@@ -1,9 +1,13 @@
 from rest_framework import viewsets, generics, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly  # Добавить импорт
-
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from .models import User, Category, Reaction, Event
 from .serializers import UserSerializer, CategorySerializer, EventSerializer, ReactionSerializer, \
     CustomTokenObtainPairSerializer, UserRegistrationSerializer, IsAdminOrStaff, CanChangePassword
@@ -34,7 +38,16 @@ class UserApiView(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_object(self):
+        obj = super().get_object()
+
+        if obj != self.request.user and not self.request.user.is_staff:
+            raise PermissionDenied("Вы можете просматривать только свой профиль")
+        return obj
+
     def get_permissions(self):
+        if self.action == 'retrieve' and self.request.method == 'GET':
+            return [IsAuthenticated()]
         if self.action == 'update' and self.request.method == 'PUT':
             return [CanChangePassword()]
         return [IsAdminOrStaff()]
@@ -53,10 +66,7 @@ class ReactionApiView(viewsets.ModelViewSet):
     queryset = Reaction.objects.all()
     serializer_class = ReactionSerializer
     permission_classes = [IsAuthenticated]
-from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]

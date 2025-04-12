@@ -12,12 +12,9 @@ router.register(r'events', EventApiView)
 router.register(r'reactions', ReactionApiView)
 
 urlpatterns = [
-    path('register/', UserRegistrationView.as_view(), name='register'),
-    path('login/', CustomTokenObtainPairView.as_view(), name='login'),
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
-    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/register/', UserRegistrationView.as_view(), name='register'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
 ]

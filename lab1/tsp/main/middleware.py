@@ -1,4 +1,3 @@
-from django.http import JsonResponse
 import re
 from django.http import JsonResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -10,7 +9,7 @@ class JWTAuthMiddleware:
         self.get_response = get_response
         self.exempt_paths = [
             re.compile(url) for url in [
-                r'^/api/token/$',
+                r'^/api/login/$',
                 r'^/api/register/$',
                 r'^/api/events/$'
                 r'^/api/token/refresh/$'
