@@ -6,6 +6,24 @@ from django.core.validators import ValidationError
 from rest_framework.validators import UniqueValidator
 
 
+class IsEventCreator(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.creator == request.user
+
+class IsEventCreatorOrReadOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.creator == request.user
+
+
 class IsAdminOrStaff(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user and (request.user.is_superuser or request.user.is_staff)
@@ -20,16 +38,13 @@ class CanChangePassword(permissions.BasePermission):
         return obj.id == request.user.id
 
 
-
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        data.update({
-            'user_id': self.user.id,
-            'username': self.user.username,
-            'email': self.user.email
-        })
-        return data
+        return {
+            'refresh': data['refresh'],
+            'access': data['access']
+        }
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -175,6 +190,7 @@ class EventSerializer(serializers.ModelSerializer):
         model = Event
         fields = ['event_id', 'title', 'description', 'latitude', 'longitude',
               'datetime', 'category', 'creator', 'going_users']
+        read_only_fields = ['creator']
         extra_kwargs = {
             'title': {
                 'error_messages': {
@@ -190,34 +206,47 @@ class EventSerializer(serializers.ModelSerializer):
         ).distinct()
         return SimpleUserSerializer(going_users, many=True, context=self.context).data
 
+class SimpleUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'avatar')
+        read_only_fields = ['id', 'username', 'avatar']
 
 class ReactionSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    event = serializers.PrimaryKeyRelatedField(
+        queryset=Event.objects.all(),
+        required=False
+    )
+
     class Meta:
         model = Reaction
-        fields = '__all__'
+        fields = ['reaction_id', 'user', 'event', 'type']
+        read_only_fields = ['user', 'reaction_id', 'event']
         extra_kwargs = {
-            'user': {
+            'type': {
+                'required': True,
                 'error_messages': {
-                    'does_not_exist': 'Пользователь не найден'
-                }
-            },
-            'event': {
-                'error_messages': {
-                    'does_not_exist': 'Событие не найдено'
+                    'invalid_choice': 'Допустимые значения: going, not_going'
                 }
             }
         }
 
-    def validate_reaction_type(self, value):
-        valid_reactions = ['going', 'not_going']
-        if value not in valid_reactions:
-            raise serializers.ValidationError(
-                f"Недопустимая реакция. Допустимые значения: {', '.join(valid_reactions)}"
-            )
-        return value
+    def validate(self, data):
+        if self.instance is None and 'event' not in data:
+            raise serializers.ValidationError({"event": "Это поле обязательно при создании реакции"})
+
+        if self.instance and 'event' in data:
+            if data['event'] != self.instance.event:
+                raise serializers.ValidationError({"event": "Нельзя изменять мероприятие для существующей реакции"})
+
+        if self.instance is None and Reaction.objects.filter(
+                user=data.get('user', self.context['request'].user),
+                event=data['event']
+        ).exists():
+            raise serializers.ValidationError({"error": "Вы уже оставили реакцию на это мероприятие"})
+
+        return data
 
 
-class SimpleUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('username', 'avatar')
+
