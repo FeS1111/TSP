@@ -1,6 +1,7 @@
-from django.contrib.auth import authenticate, logout
+from django.contrib.auth import authenticate, logout, login as auth_login
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
+from django.middleware.csrf import get_token
 from django.urls import reverse
 from rest_framework import viewsets, generics, status
 from rest_framework.exceptions import PermissionDenied
@@ -19,35 +20,39 @@ from django.views import View
 
 
 class EventsTemplateView(LoginRequiredMixin, View):
-    login_url = '/login/'
-    redirect_field_name = 'next'
+    login_url = 'login'
 
     def get(self, request):
-        categories = Category.objects.all()
+        # Убедимся, что пользователь аутентифицирован
+        if not request.user.is_authenticated:
+            return redirect('login')
+
         return render(request, 'events/events.html', {
-            'categories': categories,
-            'access_token': request.session.get('access_token', '')
+            'categories': Category.objects.all(),
+            'csrf_token': get_token(request)  # Явная передача CSRF
         })
 
 
 class LoginTemplateView(View):
     def get(self, request):
-        if request.session.get('access_token'):
-            return redirect(request.GET.get('next', '/api/map/'))
+        if request.user.is_authenticated:
+            return redirect('map')
         return render(request, 'auth/login.html')
 
     def post(self, request):
         username = request.POST.get('username')
         password = request.POST.get('password')
-        next_url = request.POST.get('next', 'api/map/')  # Убедитесь, что default URL существует
 
-        user = authenticate(username=username, password=password)
-        if not user:
-            return render(request, 'auth/login.html', {'error': 'Неверные данные'})
+        user = authenticate(request, username=username, password=password)
 
-        refresh = RefreshToken.for_user(user)
-        request.session['access_token'] = str(refresh.access_token)
-        return redirect(next_url)  # Редирект на существующий URL
+        if user is not None:
+            auth_login(request, user)
+            refresh = RefreshToken.for_user(user)
+            return redirect('map')
+        else:
+            return render(request, 'auth/login.html', {'error': 'Invalid credentials'})
+
+
 class RegisterTemplateView(View):
     def get(self, request):
         return render(request, 'auth/register.html')

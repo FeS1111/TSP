@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block content %}
 <div class="auth-container">
     <div class="auth-form">
@@ -8,10 +9,8 @@
             <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
 
-        <!-- Форма с правильным CSRF-токеном -->
         <form method="POST" action="{% url 'login' %}">
             {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.GET.next }}">
 
             <div class="form-group">
                 <label for="username">Имя пользователя:</label>
@@ -27,6 +26,4 @@
         </form>
     </div>
 </div>
-
-<script src="{% static 'js/auth.js' %}"></script>
 {% endblock %}

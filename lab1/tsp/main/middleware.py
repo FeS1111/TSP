@@ -8,23 +8,38 @@ from django.shortcuts import redirect
 from rest_framework_simplejwt.exceptions import InvalidToken
 
 
+# middleware.py
 class JWTAuthMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
+        self.exempt_paths = [
+            '/login/',
+            '/register/',
+            '/admin/',
+            '/static/',
+            '/api/auth/'
+        ]
+
     def __call__(self, request):
-        exempt_paths = ['/login/', '/register/', '/static/', '/admin/', '/api/login/', '/api/register/']
+        path = request.path
 
-        if any(request.path.startswith(p) for p in exempt_paths):
+        if any(path.startswith(exempt) for exempt in self.exempt_paths):
             return self.get_response(request)
 
-        if request.path == '/login/' and request.method == 'POST':
+        # Для /api/map/ используем сессионную аутентификацию
+        if path == '/api/map/':
             return self.get_response(request)
 
-        if not request.session.get('access_token'):
-            # Не добавляем next=/ для корневого URL
-            if request.path == '/':
-                return redirect('/login/')
-            return redirect(f'/login/?next={request.path}')
+        # Для API-эндпоинтов проверяем JWT
+        if path.startswith('/api/'):
+            auth_header = request.headers.get('Authorization', '')
+            if not auth_header.startswith('Bearer '):
+                return JsonResponse({'error': 'Token required'}, status=401)
+            try:
+                token = auth_header.split(' ')[1]
+                JWTAuthentication().get_validated_token(token)
+            except Exception:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
 
         return self.get_response(request)
 

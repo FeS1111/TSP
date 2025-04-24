@@ -47,7 +47,11 @@ INSTALLED_APPS = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+            'rest_framework.permissions.IsAuthenticated',
     )
+
 }
 
 SIMPLE_JWT = {
@@ -151,12 +155,22 @@ TEMPLATES = [
     },
 ]
 
-STATIC_URL = '/static/'
+STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/map/'
+LOGOUT_REDIRECT_URL = '/login/'
+
+SESSION_COOKIE_SECURE = False  # Для разработки (True в production)
+SESSION_COOKIE_SAMESITE = 'Lax'  # Или 'None' если нужен кросс-домен
 CSRF_COOKIE_SECURE = False
-CSRF_COOKIE_HTTPONLY = False
-CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000']
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000'
+]
 
 LOGIN_URL = '/login/'
 AUTHENTICATION_BACKENDS = [
