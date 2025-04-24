@@ -40,7 +40,7 @@ class Migration(migrations.Migration):
                 ('latitude', models.DecimalField(decimal_places=8, max_digits=10, validators=[django.core.validators.MinValueValidator(-180), django.core.validators.MaxValueValidator(180)])),
                 ('longitude', models.DecimalField(decimal_places=8, max_digits=11, validators=[django.core.validators.MinValueValidator(-90), django.core.validators.MaxValueValidator(90)])),
                 ('datetime', models.DateTimeField()),
-                ('category', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='events', to='main.category')),
+                ('category', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='auth', to='main.category')),
                 ('creator', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='created_events', to='main.user')),
             ],
         ),

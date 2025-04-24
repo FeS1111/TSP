@@ -1,43 +1,33 @@
 import re
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
+from django.shortcuts import redirect
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
+
+from django.shortcuts import redirect
+from rest_framework_simplejwt.exceptions import InvalidToken
 
 
 class JWTAuthMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
-        self.exempt_paths = [
-            re.compile(url) for url in [
-                r'^/api/login/$',
-                r'^/api/register/$',
-                r'^/api/events/$'
-                r'^/api/token/refresh/$'
-
-            ]
-        ]
-        self.jwt_authentication = JWTAuthentication()
-
     def __call__(self, request):
-        if self._is_exempt(request.path) or request.method == 'OPTIONS':
+        exempt_paths = ['/login/', '/register/', '/static/', '/admin/', '/api/login/', '/api/register/']
+
+        if any(request.path.startswith(p) for p in exempt_paths):
             return self.get_response(request)
 
-        auth_header = request.headers.get('Authorization', '')
-        if not auth_header.startswith('Bearer '):
-            return JsonResponse({'error': 'Требуется токен авторизации'}, status=401)
+        if request.path == '/login/' and request.method == 'POST':
+            return self.get_response(request)
 
-        token = auth_header.split(' ')[1]
-        try:
-            validated_token = self.jwt_authentication.get_validated_token(token)
-            user = self.jwt_authentication.get_user(validated_token)
-            request.user = user
-        except (InvalidToken, AuthenticationFailed) as e:
-            return JsonResponse({'error': str(e)}, status=401)
+        if not request.session.get('access_token'):
+            # Не добавляем next=/ для корневого URL
+            if request.path == '/':
+                return redirect('/login/')
+            return redirect(f'/login/?next={request.path}')
 
         return self.get_response(request)
 
-    def _is_exempt(self, path):
-        return any(url.match(path) for url in self.exempt_paths)
 
 class PasswordChangeMiddleware:
     def __init__(self, get_response):

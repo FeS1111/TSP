@@ -66,7 +66,7 @@ class Event(models.Model):
         max_digits=11, decimal_places=8, validators=[MinValueValidator(-90), MaxValueValidator(90)]
     )
     datetime = models.DateTimeField()
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='events')
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='auth')
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_events')
 
     def __str__(self):

@@ -6,6 +6,10 @@ from django.core.validators import ValidationError
 from rest_framework.validators import UniqueValidator
 
 
+class LoginFormSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
+
 class IsEventCreator(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
