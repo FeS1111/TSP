@@ -70,9 +70,45 @@ class LoginTemplateView(View):
             return render(request, 'auth/login.html', {'error': 'Invalid credentials'})
 
 
+class UserRegistrationView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserRegistrationSerializer
+    permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+
+        # Автоматически входим пользователя после регистрации
+        user = authenticate(
+            username=serializer.data['username'],
+            password=request.data['password']
+        )
+
+        if user:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "message": "Пользователь успешно зарегистрирован!",
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh)
+            }, status=status.HTTP_201_CREATED, headers=headers)
+
+        return Response(
+            {"message": "Пользователь успешно зарегистрирован! Пожалуйста, войдите."},
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+
 class RegisterTemplateView(View):
     def get(self, request):
+        if request.user.is_authenticated:
+            return redirect('map')
         return render(request, 'auth/register.html')
+
+    def post(self, request):
+        return redirect('api-register')
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -118,52 +154,28 @@ class CategoryApiView(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
 
+
 class EventApiView(viewsets.ModelViewSet):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated, IsEventCreator]
 
+    def perform_create(self, serializer):
+        serializer.save(creator=self.request.user)
+
     def create(self, request, *args, **kwargs):
         try:
-            # Для FormData
-            data = {
-                'title': request.POST.get('title'),
-                'description': request.POST.get('description'),
-                'datetime': request.POST.get('datetime'),
-                'latitude': request.POST.get('latitude'),
-                'longitude': request.POST.get('longitude'),
-                'category': request.POST.get('category'),
-                'creator': request.user.id
-            }
+            data = request.data.copy()
+
+            data['creator'] = request.user.id
 
             serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
             self.perform_create(serializer)
-
-            return Response(serializer.data, status=201)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         except Exception as e:
-            return Response({'error': str(e)}, status=400)
-
-        def list(self, request):
-            queryset = self.get_queryset()
-            serializer = self.get_serializer(queryset, many=True)
-            return Response({
-                "status": "success",
-                "data": serializer.data  # Явно возвращаем массив
-            })
-
-    def update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=kwargs.pop('partial', False))
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self.check_object_permissions(request, instance)
-        instance.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ReactionApiView(viewsets.ModelViewSet):

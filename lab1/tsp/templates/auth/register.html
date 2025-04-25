@@ -1,10 +1,98 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends "base.html" %}
+{% load static %}
 
-</body>
-</html>
+{% block content %}
+<div class="auth-container">
+    <div class="auth-form">
+        <h2>Регистрация</h2>
+        <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+
+        <form id="register-form">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="username">Имя пользователя:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+
+            </div>
+
+            <div class="form-group">
+                <label for="password">Пароль:</label>
+                <input type="password" id="password" name="password" required>
+                <small class="form-text text-muted">Минимум 8 символов</small>
+            </div>
+
+            <div class="form-group">
+                <label for="password2">Подтверждение пароля:</label>
+                <input type="password" id="password2" name="password2" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+        </form>
+
+        <div class="login-link mt-3">
+            <p>Уже есть аккаунт? <a href="{% url 'login' %}" class="btn btn-secondary">Войти</a></p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('register-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const errorElement = document.getElementById('error-message');
+    errorElement.style.display = 'none';
+
+    const username = document.getElementById('username').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const password2 = document.getElementById('password2').value;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    try {
+        const response = await fetch('/api/auth/register/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                username: username,
+                email: email,
+                password: password,
+                password2: password2
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Сохраняем токен и перенаправляем
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('refresh_token', data.refresh_token);
+            window.location.href = '/map/';
+        } else {
+            // Показываем ошибки валидации
+            let errorText = '';
+            if (data.detail) {
+                errorText = data.detail;
+            } else {
+                for (const field in data) {
+                    errorText += `${field}: ${data[field].join(' ')}\n`;
+                }
+            }
+            errorElement.textContent = errorText || 'Ошибка регистрации';
+            errorElement.style.display = 'block';
+        }
+    } catch (error) {
+        errorElement.textContent = 'Ошибка сети: ' + error.message;
+        errorElement.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}

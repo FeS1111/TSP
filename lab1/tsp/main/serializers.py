@@ -1,5 +1,6 @@
 from rest_framework import permissions, serializers
 from .models import User, Event, Category, Reaction
+import re
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.hashers import make_password
 from django.core.validators import ValidationError
@@ -52,15 +53,41 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
-        write_only=True,
-        required=True,
-        style={'input_type': 'password'}
-    )
+    password2 = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'avatar']
+        fields = ('username', 'email', 'password', 'password2')
+        extra_kwargs = {
+            'password': {'write_only': True},
+        }
+
+    def validate_email(self, value):
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', value):
+            raise serializers.ValidationError(
+                "Некорректный формат email. Используйте форматы: text@text.ru или text@text.com")
+        if not value.endswith(('.ru', '.com')):
+            raise serializers.ValidationError("Допустимы только домены .ru и .com")
+        return value
+
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Пароль должен содержать не менее 8 символов")
+        return value
+
+    def validate(self, data):
+        if data['password'] != data['password2']:
+            raise serializers.ValidationError({"password": "Пароли не совпадают"})
+        return data
+
+    def create(self, validated_data):
+        validated_data.pop('password2')
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password']
+        )
+        return user
 
     def create(self, validated_data):
         return User.objects.create_user(
@@ -189,6 +216,9 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class EventSerializer(serializers.ModelSerializer):
     going_users = serializers.SerializerMethodField()
+
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
+    creator = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Event

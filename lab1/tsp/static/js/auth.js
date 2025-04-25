@@ -17,6 +17,25 @@ async function login(username, password) {
     }
 }
 
+async function register(username, email, password) {
+    const response = await fetch('/api/auth/register/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, email, password })
+    });
+
+    if (response.ok) {
+        const data = await response.json();
+        alert(data.message || 'Registration successful!');
+        window.location.href = '/map/';
+    } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Registration failed');
+    }
+}
+
 // Добавляем токен в заголовки всех API запросов
 fetch('/api/protected/', {
     headers: {

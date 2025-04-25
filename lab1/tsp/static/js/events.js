@@ -1,3 +1,7 @@
+let eventForm = null;
+let eventModal = null;
+let currentEvents = [];
+
 function initYandexMap() {
     ymaps.ready(() => {
         console.log("YMaps ready!");
@@ -74,28 +78,27 @@ function getJWTToken() {
 }
 
 function initModal(map) {
-    const modal = document.getElementById('eventModal');
-    const form = document.getElementById('eventForm');
+    eventModal = document.getElementById('eventModal');
+    eventForm = document.getElementById('eventForm');
+    const cancelBtn = document.querySelector('.close-btn');
 
-    if (!modal || !form) return;
+    if (!eventModal || !eventForm || !cancelBtn) return;
 
     map.events.add('click', function(e) {
         const coords = e.get('coords');
-        document.getElementById('latitude').value = coords[0].toPrecision(8);
-        document.getElementById('longitude').value = coords[1].toPrecision(8);
-        modal.style.display = 'block';
+        document.getElementById('latitude').value = coords[0].toFixed(6);
+        document.getElementById('longitude').value = coords[1].toFixed(6);
+        eventModal.style.display = 'block';
     });
 
-    form.addEventListener('submit', function(e) {
+    eventForm.addEventListener('submit', function(e) {
         e.preventDefault();
         createEvent(map);
-        modal.style.display = 'none';
     });
 
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        createEvent(map);
-        modal.style.display = 'none';
+    cancelBtn.addEventListener('click', function() {
+        eventModal.style.display = 'none';
+        eventForm.reset();
     });
 }
 
@@ -114,14 +117,11 @@ function loadEvents(map) {
         }
     })
     .then(response => {
-        if (response.status === 401) {
-            window.location.href = '/login/';
-            throw new Error('Token expired or invalid');
-        }
         if (!response.ok) throw new Error('Ошибка загрузки мероприятий');
         return response.json();
     })
     .then(events => {
+        currentEvents = events; // Сохраняем мероприятия
         addEventsToMap(map, events);
     })
     .catch(error => {
@@ -132,19 +132,15 @@ function loadEvents(map) {
 
 function createEvent(map) {
     const token = getJWTToken();
-    if (!token) {
-        window.location.href = '/login/';
-        return;
-    }
+    if (!token) return;
 
-    const formData = new FormData(document.getElementById('eventForm'));
-    const eventData = {
-        title: formData.get('title'),
-        description: formData.get('description'),
-        datetime: formData.get('datetime'),
-        latitude: formData.get('latitude'),
-        longitude: formData.get('longitude'),
-        category: formData.get('category')
+    const formData = {
+        title: eventForm.querySelector('[name="title"]').value.trim(),
+        description: eventForm.querySelector('[name="description"]').value.trim(),
+        datetime: new Date(eventForm.querySelector('[name="datetime"]').value).toISOString(),
+        latitude: parseFloat(eventForm.querySelector('#latitude').value),
+        longitude: parseFloat(eventForm.querySelector('#longitude').value),
+        category: parseInt(eventForm.querySelector('[name="category"]').value)
     };
 
     fetch('/api/events/', {
@@ -153,18 +149,23 @@ function createEvent(map) {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(eventData)
+        body: JSON.stringify(formData)
     })
     .then(response => {
         if (!response.ok) throw new Error('Ошибка создания мероприятия');
         return response.json();
     })
-    .then(event => {
-        addEventsToMap(map, [event]);
+    .then(newEvent => {
+        // Добавляем новое мероприятие к текущим
+        currentEvents.push(newEvent);
+        // Полностью перерисовываем карту с обновленным списком
+        addEventsToMap(map, currentEvents);
+        eventModal.style.display = 'none';
+        eventForm.reset();
     })
     .catch(error => {
         console.error('Ошибка:', error);
-        alert('Не удалось создать мероприятие');
+        alert(`Ошибка: ${error.message}`);
     });
 }
 
@@ -195,92 +196,48 @@ function logout() {
 }
 
 function addEventsToMap(map, events) {
-    // Очищаем старые метки, если они есть
+    if (!map || !map.geoObjects) return;
+
+    // Сохраняем текущий вид карты
+    const currentCenter = map.getCenter();
+    const currentZoom = map.getZoom();
+
+    // Очищаем старые метки
     map.geoObjects.removeAll();
 
-    // Проверяем, что events - массив
-    if (!Array.isArray(events)) {
-        console.error('Ожидался массив мероприятий, получено:', events);
-        return;
-    }
-
-    // Создаем кластеризатор для группировки меток
+    // Создаем кластеризатор
     const clusterer = new ymaps.Clusterer({
         preset: 'islands#invertedRedClusterIcons',
-        clusterDisableClickZoom: true,
-        clusterHideIconOnBalloonOpen: false,
-        geoObjectHideIconOnBalloonOpen: false
+        clusterDisableClickZoom: true
     });
 
-    // Создаем массив для меток
-    const placemarks = [];
-
-    events.forEach(event => {
-        try {
-            // Проверяем наличие обязательных полей
-            if (!event.latitude || !event.longitude) {
-                console.warn('У мероприятия отсутствуют координаты:', event);
-                return;
+    // Создаем метки для всех мероприятий
+    const placemarks = events.map(event => {
+        return new ymaps.Placemark(
+            [event.latitude, event.longitude],
+            {
+                balloonContent: `
+                    <h3>${event.title || 'Без названия'}</h3>
+                    <p>${event.description || 'Нет описания'}</p>
+                    <small>${new Date(event.datetime).toLocaleString()}</small>
+                `,
+                hintContent: event.title || 'Мероприятие'
+            },
+            {
+                preset: 'islands#redIcon',
+                balloonCloseButton: true
             }
-
-            // Создаем содержимое балуна
-            const balloonContent = `
-                <div style="padding: 10px; max-width: 300px;">
-                    <h3 style="margin-top: 0; color: #1e88e5;">${event.title || 'Без названия'}</h3>
-                    <p>${event.description || 'Описание отсутствует'}</p>
-                    <div style="margin-top: 10px;">
-                        <small>
-                            <strong>Дата:</strong> ${event.datetime ? new Date(event.datetime).toLocaleString() : 'Не указана'}<br>
-                            <strong>Категория:</strong> ${event.category?.name || 'Не указана'}
-                        </small>
-                    </div>
-                </div>
-            `;
-
-            // Создаем метку
-            const placemark = new ymaps.Placemark(
-                [event.latitude, event.longitude],
-                {
-                    balloonContent: balloonContent,
-                    hintContent: event.title || 'Мероприятие',
-                },
-                {
-                    preset: 'islands#redEventCircleIcon',
-                    balloonCloseButton: true,
-                    hideIconOnBalloonOpen: false
-                }
-            );
-
-            // Добавляем обработчик клика
-            placemark.events.add('click', function() {
-                placemark.balloon.open();
-            });
-
-            placemarks.push(placemark);
-
-        } catch (e) {
-            console.error('Ошибка создания метки для мероприятия:', event, e);
-        }
+        );
     });
 
-    // Добавляем метки в кластеризатор
+    // Добавляем все метки на карту
     if (placemarks.length > 0) {
         clusterer.add(placemarks);
         map.geoObjects.add(clusterer);
-
-        // Автоматически подбираем оптимальный масштаб
-        if (placemarks.length > 1) {
-            map.setBounds(clusterer.getBounds(), {
-                checkZoomRange: true,
-                zoomMargin: 50
-            });
-        } else if (placemarks.length === 1) {
-            map.setCenter([placemarks[0].geometry.getCoordinates()], 14);
-        }
-    } else {
-        console.warn('Нет мероприятий для отображения');
-        document.getElementById('status').textContent = 'Мероприятия не найдены';
     }
+
+    // Восстанавливаем позицию карты
+    map.setCenter(currentCenter, currentZoom, { checkZoomRange: true });
 }
 
 function initApplication(map) {
