@@ -2,126 +2,68 @@
 {% load static %}
 
 {% block content %}
-<!-- Основной контейнер карты -->
-<div id="map-container" style="position: absolute; top: 0; bottom: 0; left: 0; right: 0;">
-    <!-- Контейнер для карты -->
+<div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0;">
     <div id="map" style="width: 100%; height: 100%;"></div>
-
-    <!-- Кнопка выхода -->
-    <button id="logoutBtn" class="logout-btn">Выход</button>
-
-    <!-- Модальное окно создания события -->
-    <div id="eventModal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h2>Создать мероприятие</h2>
-            <form id="eventForm">
-                <input type="hidden" id="latitude" name="latitude">
-                <input type="hidden" id="longitude" name="longitude">
-                <div class="form-group">
-                    <label for="title">Название:</label>
-                    <input type="text" id="title" name="title" required>
-                </div>
-                <div class="form-group">
-                    <label for="description">Описание:</label>
-                    <textarea id="description" name="description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="datetime">Дата и время:</label>
-                    <input type="datetime-local" id="datetime" name="datetime" required>
-                </div>
-                <div class="form-group">
-                    <label for="category">Категория:</label>
-                    <select id="category" name="category" required>
-                        {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit">Создать</button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<style>
-    /* Обязательные стили для карты */
-    html, body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-    }
-
-    #map-container {
+    <button id="logoutBtn" style="
         position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
-    }
-
-    #map {
-        width: 100%;
-        height: 100%;
-    }
-
-    .logout-btn {
-        position: absolute;
-        top: 15px;
-        right: 15px;
+        top: 20px;
+        right: 20px;
         z-index: 1000;
-        padding: 8px 16px;
+        padding: 10px 20px;
         background: #dc3545;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 5px;
         cursor: pointer;
-    }
-
-    /* Стили модального окна */
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1001;
-        background-color: rgba(0,0,0,0.5);
-    }
-
-    .modal-content {
-        background: white;
-        margin: 15% auto;
-        padding: 20px;
-        width: 80%;
-        max-width: 500px;
-    }
-</style>
-{% endblock %}
-
-{% block scripts %}
-<!-- Подключаем API Яндекс.Карт -->
-<script src="https://api-maps.yandex.ru/2.1/?apikey=73768dcf-5edf-40ff-b1c9-d7a3fabadc62&lang=ru_RU"></script>
-
-<!-- Подключаем наш скрипт -->
-<script src="{% static 'js/events.js' %}"></script>
+        font-size: 16px;
+    ">Выход</button>
+    <div id="status" style="position: absolute; top: 10px; left: 10px; background: white; padding: 5px; z-index: 1000;"></div>
+</div>
 
 <script>
-document.getElementById('logoutBtn').addEventListener('click', function() {
-    fetch('/logout/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-            'Content-Type': 'application/json'
+function initMap() {
+    try {
+        const map = new ymaps.Map('map', {
+            center: [55.76, 37.64], // Координаты Москвы
+            zoom: 10,
+            controls: ['zoomControl', 'typeSelector']
+        });
+
+    } catch (e) {
+        document.getElementById('status').textContent = 'Ошибка: ' + e.message;
+        console.error('Ошибка создания карты:', e);
+    }
+}
+
+// Загрузка API с обработкой ошибок
+const script = document.createElement('script');
+script.src = 'https://api-maps.yandex.ru/2.1/?apikey=73768dcf-5edf-40ff-b1c9-d7a3fabadc62&lang=ru_RU';
+script.onload = () => ymaps.ready(initMap);
+script.onerror = () => {
+    document.getElementById('status').textContent = 'Ошибка загрузки API карт';
+    console.error('Не удалось загрузить API Яндекс.Карт');
+};
+document.head.appendChild(script);
+
+    document.getElementById('logoutBtn').addEventListener('click', async function() {
+    try {
+        const response = await fetch('{% url "logout" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            window.location.href = '{% url "login" %}';
+        } else {
+            console.error('Ошибка выхода:', await response.text());
         }
-    })
-    .then(response => {
-        window.location.href = '/login/';
-    })
-    .catch(error => {
-        console.error('Logout error:', error);
-        window.location.href = '/login/';
-    });
+    } catch (error) {
+        console.error('Ошибка:', error);
+    }
 });
 </script>
-
 {% endblock %}

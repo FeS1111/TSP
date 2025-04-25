@@ -11,6 +11,7 @@ from main.views import (
 from rest_framework.routers import DefaultRouter
 from django.views.decorators.csrf import csrf_exempt
 
+
 router = DefaultRouter()
 router.register(r'users', UserApiView, basename='users')
 router.register(r'categories', CategoryApiView, basename='categories')

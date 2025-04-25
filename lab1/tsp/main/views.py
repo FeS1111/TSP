@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.urls import reverse
 from rest_framework import viewsets, generics, status
+from rest_framework.decorators import api_view
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -17,19 +18,31 @@ from .serializers import UserSerializer, CategorySerializer, EventSerializer, Re
     CustomTokenObtainPairSerializer, UserRegistrationSerializer, IsAdminOrStaff, CanChangePassword, IsEventCreator
 from django.shortcuts import render, redirect
 from django.views import View
+import json
 
 
 class EventsTemplateView(LoginRequiredMixin, View):
     login_url = 'login'
 
+    def create(self, request, *args, **kwargs):
+        try:
+            # Для FormData
+            data = request.POST.dict()
+            data['creator'] = request.user.id
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            return JsonResponse(serializer.data, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
     def get(self, request):
-        # Убедимся, что пользователь аутентифицирован
         if not request.user.is_authenticated:
-            return redirect('login')
+            return redirect(self.login_url)
 
         return render(request, 'events/events.html', {
             'categories': Category.objects.all(),
-            'csrf_token': get_token(request)  # Явная передача CSRF
+            'csrf_token': get_token(request)
         })
 
 
@@ -51,7 +64,6 @@ class LoginTemplateView(View):
             return redirect('map')
         else:
             return render(request, 'auth/login.html', {'error': 'Invalid credentials'})
-
 
 class RegisterTemplateView(View):
     def get(self, request):
@@ -106,8 +118,34 @@ class EventApiView(viewsets.ModelViewSet):
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated, IsEventCreator]
 
-    def perform_create(self, serializer):
-        serializer.save(creator=self.request.user)
+    def create(self, request, *args, **kwargs):
+        try:
+            # Для FormData
+            data = {
+                'title': request.POST.get('title'),
+                'description': request.POST.get('description'),
+                'datetime': request.POST.get('datetime'),
+                'latitude': request.POST.get('latitude'),
+                'longitude': request.POST.get('longitude'),
+                'category': request.POST.get('category'),
+                'creator': request.user.id
+            }
+
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+
+            return Response(serializer.data, status=201)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+        def list(self, request):
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                "status": "success",
+                "data": serializer.data  # Явно возвращаем массив
+            })
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

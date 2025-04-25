@@ -80,3 +80,7 @@ button:hover {
     margin-bottom: 1rem;
     border-radius: 5px;
 }
+
+#logoutBtn:hover {
+    background: #c82333;
+    transform: scale
