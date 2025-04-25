@@ -26,7 +26,6 @@ class EventsTemplateView(LoginRequiredMixin, View):
 
     def create(self, request, *args, **kwargs):
         try:
-            # Для FormData
             data = request.POST.dict()
             data['creator'] = request.user.id
             serializer = self.get_serializer(data=data)
@@ -59,11 +58,17 @@ class LoginTemplateView(View):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            auth_login(request, user)
+            auth_login(request, user)  # Оставляем сессию для веб-интерфейса
             refresh = RefreshToken.for_user(user)
-            return redirect('map')
+
+            # Возвращаем страницу с токеном
+            return render(request, 'auth/login.html', {
+                'access_token': str(refresh.access_token),
+                'refresh_token': '/map'
+            })
         else:
             return render(request, 'auth/login.html', {'error': 'Invalid credentials'})
+
 
 class RegisterTemplateView(View):
     def get(self, request):

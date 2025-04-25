@@ -3,7 +3,7 @@
 
 {% block content %}
 <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0;">
-    <div id="map" style="width: 100%; height: 100%;"></div>
+    <div id="map" style="width: 100%; height: 100vh;"></div>
     <button id="logoutBtn" style="
         position: absolute;
         top: 20px;
@@ -18,52 +18,101 @@
         font-size: 16px;
     ">Выход</button>
     <div id="status" style="position: absolute; top: 10px; left: 10px; background: white; padding: 5px; z-index: 1000;"></div>
+
+    <div id="eventModal" style="
+        display: none;
+        position: fixed;
+        z-index: 1001;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 400px;
+        background: white;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    ">
+        <h3>Создать мероприятие</h3>
+        <form id="eventForm">
+            <div style="margin-bottom: 10px;">
+                <label>Название:</label>
+                <input type="text" name="title" required style="width: 100%; padding: 8px;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Описание:</label>
+                <textarea name="description" style="width: 100%; padding: 8px; height: 80px;"></textarea>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Дата и время:</label>
+                <input type="datetime-local" name="datetime" required style="width: 100%; padding: 8px;">
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Категория:</label>
+                <select name="category" style="width: 100%; padding: 8px;">
+                    {% for category in categories %}
+                    <option value="{{ category.category_id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input type="hidden" name="latitude" id="latitude">
+            <input type="hidden" name="longitude" id="longitude">
+            <button type="submit" style="
+                background: #28a745;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 5px;
+                cursor: pointer;
+            ">Создать</button>
+            <button type="button" class="close-btn" style="
+                background: #dc3545;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 5px;
+                cursor: pointer;
+                margin-left: 10px;
+            ">Отмена</button>
+        </form>
+    </div>
+
 </div>
 
-<script>
-function initMap() {
-    try {
-        const map = new ymaps.Map('map', {
-            center: [55.76, 37.64], // Координаты Москвы
-            zoom: 10,
-            controls: ['zoomControl', 'typeSelector']
-        });
-
-    } catch (e) {
-        document.getElementById('status').textContent = 'Ошибка: ' + e.message;
-        console.error('Ошибка создания карты:', e);
+<style>
+    body, html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
     }
-}
-
-// Загрузка API с обработкой ошибок
-const script = document.createElement('script');
-script.src = 'https://api-maps.yandex.ru/2.1/?apikey=73768dcf-5edf-40ff-b1c9-d7a3fabadc62&lang=ru_RU';
-script.onload = () => ymaps.ready(initMap);
-script.onerror = () => {
-    document.getElementById('status').textContent = 'Ошибка загрузки API карт';
-    console.error('Не удалось загрузить API Яндекс.Карт');
-};
-document.head.appendChild(script);
-
-    document.getElementById('logoutBtn').addEventListener('click', async function() {
-    try {
-        const response = await fetch('{% url "logout" %}', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            window.location.href = '{% url "login" %}';
-        } else {
-            console.error('Ошибка выхода:', await response.text());
-        }
-    } catch (error) {
-        console.error('Ошибка:', error);
+    .map-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
     }
-});
-</script>
+    #map {
+        width: 100%;
+        height: 100vh;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+    .logout-btn {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        z-index: 1000;
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .modal {
+        display: none;
+        position: fixed;
+    }
+</style>
+
+<script src="{% static 'js/events.js' %}"></script>
 {% endblock %}

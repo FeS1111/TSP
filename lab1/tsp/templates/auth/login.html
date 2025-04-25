@@ -26,4 +26,12 @@
         </form>
     </div>
 </div>
+
+{% if access_token %}
+<script>
+    localStorage.setItem('access_token', '{{ access_token }}');
+    window.location.href = '{{ redirect_to|default:"/map/" }}';
+</script>
+{% endif %}
+
 {% endblock %}
