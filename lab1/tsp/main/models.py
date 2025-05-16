@@ -67,7 +67,7 @@ class Event(models.Model):
     )
     datetime = models.DateTimeField()
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='auth')
-    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_events')
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_events', verbose_name='Создатель')
 
     def __str__(self):
         return self.title
@@ -100,3 +100,11 @@ class Reaction(models.Model):
 
     def __str__(self):
         return f"{self.user.username} -> {self.event.title} ({self.type})"
+
+    @staticmethod
+    def get_going_count(event_id):
+        return Reaction.objects.filter(event_id=event_id, type='going').count()
+
+    @staticmethod
+    def get_going_users(event_id):
+        return User.objects.filter(reactions__event_id=event_id, reactions__type='going')

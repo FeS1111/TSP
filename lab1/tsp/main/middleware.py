@@ -18,7 +18,7 @@ class JWTAuthMiddleware:
             '/admin/',
             '/static/',
             '/api/auth/',
-            '/api/login/'
+            '/api/login/',
         ]
 
     def __call__(self, request):

@@ -215,15 +215,17 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class EventSerializer(serializers.ModelSerializer):
+    going_count = serializers.SerializerMethodField()
     going_users = serializers.SerializerMethodField()
 
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
     creator = serializers.PrimaryKeyRelatedField(read_only=True)
+    user_reaction = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
         fields = ['event_id', 'title', 'description', 'latitude', 'longitude',
-              'datetime', 'category', 'creator', 'going_users']
+              'datetime', 'category', 'creator', 'going_users', 'going_count', 'user_reaction']
         read_only_fields = ['creator']
         extra_kwargs = {
             'title': {
@@ -233,12 +235,15 @@ class EventSerializer(serializers.ModelSerializer):
             }
         }
 
+    def get_user_reaction(self, obj):
+        user = self.context['request'].user
+        reaction = obj.reactions.filter(user=user).first()
+        return reaction.type if reaction else None
+    def get_going_count(self, obj):
+        return obj.reactions.filter(type='going').count()
+
     def get_going_users(self, obj):
-        going_users = User.objects.filter(
-            reactions__event=obj,
-            reactions__type='going'
-        ).distinct()
-        return SimpleUserSerializer(going_users, many=True, context=self.context).data
+        return [reaction.user.username for reaction in obj.reactions.filter(type='going')]
 
 class SimpleUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -269,6 +274,9 @@ class ReactionSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if self.instance is None and 'event' not in data:
             raise serializers.ValidationError({"event": "Это поле обязательно при создании реакции"})
+
+        if self.instance and data['type'] == self.instance.type:
+            raise serializers.ValidationError("Реакция уже существует")
 
         if self.instance and 'event' in data:
             if data['event'] != self.instance.event:

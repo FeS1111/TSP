@@ -156,7 +156,7 @@ class CategoryApiView(viewsets.ModelViewSet):
 
 
 class EventApiView(viewsets.ModelViewSet):
-    queryset = Event.objects.all()
+    queryset = Event.objects.all().prefetch_related('reactions')
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated, IsEventCreator]
 
@@ -177,6 +177,21 @@ class EventApiView(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    def destroy(self, request, *args, **kwargs):
+        event = self.get_object()
+        if event.creator != request.user:
+            return Response(
+                {"error": "Вы можете удалять только свои мероприятия"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        self.perform_destroy(event)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
 
 class ReactionApiView(viewsets.ModelViewSet):
     queryset = Reaction.objects.none()
@@ -187,6 +202,10 @@ class ReactionApiView(viewsets.ModelViewSet):
         return Reaction.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
+        Reaction.objects.filter(
+            user=self.request.user,
+            event=serializer.validated_data['event']
+        ).delete()
         serializer.save(user=self.request.user)
 
     def get_object(self):
@@ -195,6 +214,17 @@ class ReactionApiView(viewsets.ModelViewSet):
         if reaction.user != self.request.user:
             raise PermissionDenied("Вы можете изменять только свои реакции")
         return reaction
+
+    def create(self, request, *args, **kwargs):
+        try:
+            Reaction.objects.filter(
+                user=request.user,
+                event_id=request.data['event']
+            ).delete()
+
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
 
     def destroy(self, request, *args, **kwargs):
         reaction = self.get_object()
