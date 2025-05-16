@@ -25,5 +25,5 @@ build/
 __pycache__/
 local_settings.py
 
-.env
+lab1/tsp/.env
 db.sqlite3

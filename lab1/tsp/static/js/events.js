@@ -6,7 +6,6 @@ let currentEvents = [];
 function initYandexMap() {
     ymaps.ready(() => {
         console.log("YMaps ready!");
-        console.log("Хуй соси!");
         map = new ymaps.Map('map', {
             center: [53.195873, 50.100193],
             zoom: 12,
@@ -185,21 +184,12 @@ function createEvent(map) {
         return response.json();
     })
     .then(newEvent => {
-        const placemark = new ymaps.Placemark(
-            [newEvent.latitude, newEvent.longitude],
-            {
-                balloonContentBody: updateBalloonContent(newEvent),
-                eventId: newEvent.event_id
-            },
-            {preset: 'islands#redIcon'}
-        );
+        // Закрываем модальное окно и очищаем форму
+        eventModal.style.display = 'none';
+        eventForm.reset();
 
-        placemark.events.add('click', function(e) {
-            this.balloon.open();
-        });
-
-        map.geoObjects.add(placemark);
-        currentEvents.push(newEvent);
+        // Полностью перезагружаем мероприятия с сервера
+        loadEvents(map);
     })
     .catch(error => {
         console.error('Ошибка:', error);
